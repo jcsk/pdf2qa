@@ -22,7 +22,13 @@ def setup_logging(verbose: bool = False) -> logging.Logger:
     # Create logger
     logger = logging.getLogger("pdf2qa")
     logger.setLevel(log_level)
-    
+
+    # Remove existing handlers to avoid duplicate log entries when
+    # setup_logging is called multiple times (e.g. in tests or
+    # successive CLI invocations).
+    if logger.hasHandlers():
+        logger.handlers.clear()
+
     # Create console handler
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(log_level)
