@@ -1,0 +1,16 @@
+{
+  "title": "Statement",
+  "description": "A factual statement extracted from the text",
+  "type": "object",
+  "properties": {
+    "statement": {
+      "type": "string",
+      "description": "A clear, concise factual statement from the text"
+    },
+    "page": {
+      "type": "integer",
+      "description": "The page number where this statement appears"
+    }
+  },
+  "required": ["statement"]
+}
