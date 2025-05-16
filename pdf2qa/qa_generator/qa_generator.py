@@ -134,8 +134,9 @@ class QAGenerator:
             prompts = []
             for statement in statements:
                 prompt = (
-                    "Generate a clear, specific question that would have the following statement as its answer. "
-                    "The question should be detailed enough that this statement would be the expected answer. "
+                    "Generate a question that would have the following statement as its answer. "
+                    "Paraphrase or rephrase the statement in the question rather than repeating it verbatim. "
+                    "The question should be specific enough that this statement would be the expected answer. "
                     "Do not include the answer in your response, only the question.\n\n"
                     f"Statement: {statement.text}\n\n"
                     "Question:"
@@ -191,8 +192,9 @@ class QAGenerator:
                 
                 prompt = (
                     "Given the following statement and question, provide a clear, concise answer "
-                    "based only on the information in the statement. Do not add any information "
-                    "that is not present in the statement.\n\n"
+                    "using only the information in the statement. Summarize or paraphrase the "
+                    "statement in your own words when responding and do not add information that "
+                    "is not present in the statement.\n\n"
                     f"Statement: {statement.text}\n\n"
                     f"Question: {question}\n\n"
                     "Answer:"
