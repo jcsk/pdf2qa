@@ -80,6 +80,8 @@ class Pipeline:
         self.parser = LlamaParser(
             api_key=parser_config.get("api_key"),
             language=parser_config.get("language", "en"),
+            chunk_size=parser_config.get("chunk_size", 1500),
+            chunk_overlap=parser_config.get("chunk_overlap", 200),
         )
 
     def _init_extractor(self) -> None:

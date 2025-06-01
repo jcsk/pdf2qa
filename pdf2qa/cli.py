@@ -63,6 +63,16 @@ def cli():
     help="Job ID to use for output files. If not provided, will use the input filename.",
 )
 @click.option(
+    "--chunk-size",
+    type=int,
+    help="Number of tokens per chunk when parsing",
+)
+@click.option(
+    "--chunk-overlap",
+    type=int,
+    help="Number of overlapping tokens between chunks",
+)
+@click.option(
     "--verbose",
     "-v",
     is_flag=True,
@@ -76,6 +86,8 @@ def process(
     skip_extract: bool = False,
     skip_qa: bool = False,
     job_id: Optional[str] = None,
+    chunk_size: Optional[int] = None,
+    chunk_overlap: Optional[int] = None,
     verbose: bool = False,
 ):
     """
@@ -102,6 +114,12 @@ def process(
         pipeline.qa_exporter = pipeline.qa_exporter.__class__(
             output_path=output_dir_path / "qa.jsonl"
         )
+
+    # Override chunking settings if provided
+    if chunk_size is not None:
+        pipeline.parser.chunk_size = chunk_size
+    if chunk_overlap is not None:
+        pipeline.parser.chunk_overlap = chunk_overlap
 
     # Run pipeline
     pipeline.run(

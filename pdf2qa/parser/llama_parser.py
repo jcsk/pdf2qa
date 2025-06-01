@@ -26,6 +26,8 @@ class LlamaParser:
         self,
         api_key: Optional[str] = None,
         language: str = "en",
+        chunk_size: int = 1500,
+        chunk_overlap: int = 200,
     ):
         """
         Initialize a LlamaParser.
@@ -42,6 +44,8 @@ class LlamaParser:
             )
 
         self.language = language
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
         self.parser = LlamaParse(
             api_key=self.api_key,
             verbose=True,
@@ -81,8 +85,12 @@ class LlamaParser:
             # Parse the document
             result = self.parser.parse(str(document.path))
 
-            # Get markdown documents split by page
-            markdown_documents = result.get_markdown_documents(split_by_page=True)
+            # Get markdown documents with custom chunking parameters
+            markdown_documents = result.get_markdown_documents(
+                split_by_page=True,
+                chunk_size=self.chunk_size,
+                chunk_overlap=self.chunk_overlap,
+            )
             logger.info(f"Successfully parsed document into {len(markdown_documents)} chunks")
 
             # Convert to our Chunk model
