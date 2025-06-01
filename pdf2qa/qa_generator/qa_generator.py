@@ -68,14 +68,15 @@ class QAGenerator:
             f"batch_size: {batch_size}"
         )
     
-    def generate(self, statements: List[Statement], source: str) -> List[QAPair]:
+    def generate(self, statements: List[Statement], source: str, job_id: Optional[str] = None) -> List[QAPair]:
         """
         Generate question-answer pairs from statements.
-        
+
         Args:
             statements: List of Statement objects.
             source: Source document identifier.
-            
+            job_id: Optional job ID for cost tracking.
+
         Returns:
             List of QAPair objects.
         """
@@ -86,12 +87,12 @@ class QAGenerator:
         # Process statements in batches
         for i in tqdm(range(0, len(statements), self.batch_size), desc="Generating Q/A pairs"):
             batch = statements[i:i+self.batch_size]
-            
+
             # Generate questions for the batch
-            questions = self._generate_questions(batch)
-            
+            questions = self._generate_questions(batch, job_id=job_id)
+
             # Generate answers for the questions
-            answers = self._generate_answers(batch, questions)
+            answers = self._generate_answers(batch, questions, job_id=job_id)
             
             # Create QAPair objects
             for j, statement in enumerate(batch):
@@ -118,13 +119,14 @@ class QAGenerator:
         logger.info(f"Generated {len(qa_pairs)} Q/A pairs")
         return qa_pairs
     
-    def _generate_questions(self, statements: List[Statement]) -> List[str]:
+    def _generate_questions(self, statements: List[Statement], job_id: Optional[str] = None) -> List[str]:
         """
         Generate questions from statements.
-        
+
         Args:
             statements: List of Statement objects.
-            
+            job_id: Optional job ID for cost tracking.
+
         Returns:
             List of questions.
         """
@@ -135,13 +137,25 @@ class QAGenerator:
             prompts = []
             for statement in statements:
                 prompt = (
-                    "Generate a question that would have the following statement as its answer. "
-                    "Paraphrase or rephrase the statement in the question rather than repeating it verbatim. "
-                    "The question should be specific enough that this statement would be the expected answer. "
-                    "Do not include the answer in your response, only the question.\n\n"
-                    f"Statement: {statement.text}\n\n"
-                    "Question:"
-                )
+    "You will be given a single statement extracted from a technical or investigative document. "
+    "Craft exactly one question such that this statement (or a paraphrase of it) would be the correct answer.  \n\n"
+    "Requirements for the question:  \n"
+    "  1. Do NOT simply copy the statement as‐is. Use synonyms, reword or reframe it.  \n"
+    "  2. Vary the question style across these categories (choose one per statement):  \n"
+    "     • Fact‐extraction (e.g., “Who…?”, “What is…?”, “When…?”)  \n"
+    "     • List extraction (e.g., “List three…”, “Name all the…”)  \n"
+    "     • Conceptual/explanatory (e.g., “Explain how…?”, “Why is…?”, “Describe the main…”)  \n"
+    "     • Section/lookup (e.g., “On which page would you find…?”, “Where is the section on…?”)  \n"
+    "  3. Make sure the question is precise enough so that, if someone reads only the statement, they know exactly how to answer.  \n"
+    "  4. Do NOT include the answer text in your question.  \n\n"
+    "Examples by category:\n"
+    "    • Fact-extraction: 'What method is used for...?'\n"
+    "    • List extraction: 'What are the three main components of...?'\n"
+    "    • Conceptual: 'How does the process of... work?'\n"
+    "    • Section/lookup: 'In which section would you find information about...?'\n\n"
+    f"Statement:\n{statement.text}\n\n"
+    "Deliverable:\n[Only the question, no additional commentary or answer]"
+)
                 prompts.append(prompt)
             
             # Call OpenAI API
@@ -161,6 +175,7 @@ class QAGenerator:
                         input_tokens=response.usage.prompt_tokens,
                         output_tokens=response.usage.completion_tokens,
                         operation="question_generation",
+                        job_id=job_id,
                         metadata={"batch_size": len(prompts)}
                     )
 
@@ -181,14 +196,15 @@ class QAGenerator:
         
         return questions
     
-    def _generate_answers(self, statements: List[Statement], questions: List[str]) -> List[str]:
+    def _generate_answers(self, statements: List[Statement], questions: List[str], job_id: Optional[str] = None) -> List[str]:
         """
         Generate answers from statements and questions.
-        
+
         Args:
             statements: List of Statement objects.
             questions: List of questions.
-            
+            job_id: Optional job ID for cost tracking.
+
         Returns:
             List of answers.
         """
@@ -203,14 +219,19 @@ class QAGenerator:
                     continue
                 
                 prompt = (
-                    "Given the following statement and question, provide a clear, concise answer "
-                    "using only the information in the statement. Summarize or paraphrase the "
-                    "statement in your own words when responding and do not add information that "
-                    "is not present in the statement.\n\n"
-                    f"Statement: {statement.text}\n\n"
-                    f"Question: {question}\n\n"
-                    "Answer:"
-                )
+    "You have a statement and a question. Your job is to produce a single, direct answer "
+    "that uses ONLY the information from the statement.  \n\n"
+    "Answer requirements:  \n"
+    "  1. If the question asks for a single fact, answer in one concise sentence.  \n"
+    "  2. If the question asks for a list, enumerate each item clearly (e.g., “• Item 1; • Item 2; …”).  \n"
+    "  3. If the question asks for explanation or summary, answer in 2–3 sentences at most, "
+    "     strictly based on the statement’s content—no outside knowledge or conjecture.  \n"
+    "  4. Do NOT add any information beyond what’s in the statement.  \n"
+    "  5. If the statement doesn't fully answer the question, respond with only what can be determined from the statement and note any limitations.\n\n"
+    f"Statement:\n{statement.text}\n\n"
+    f"Question:\n{question}\n\n"
+    "Deliverable:\n[Only the answer text, no extra commentary]"
+)
                 prompts.append(prompt)
             
             # Call OpenAI API
@@ -234,6 +255,7 @@ class QAGenerator:
                         input_tokens=response.usage.prompt_tokens,
                         output_tokens=response.usage.completion_tokens,
                         operation="answer_generation",
+                        job_id=job_id,
                         metadata={"batch_size": len(prompts)}
                     )
 

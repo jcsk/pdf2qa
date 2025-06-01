@@ -81,13 +81,14 @@ class LlamaExtractor:
 
         logger.info(f"Initialized LlamaExtractor with model: {model}")
 
-    def _extract_statements(self, text: str, pages: List[int]) -> List[dict]:
+    def _extract_statements(self, text: str, pages: List[int], job_id: Optional[str] = None) -> List[dict]:
         """
         Extract statements from text using OpenAI.
 
         Args:
             text: Text to extract statements from.
             pages: List of page numbers associated with the text.
+            job_id: Optional job ID for cost tracking.
 
         Returns:
             List of extracted statements.
@@ -122,6 +123,7 @@ class LlamaExtractor:
                     input_tokens=response.usage.prompt_tokens,
                     output_tokens=response.usage.completion_tokens,
                     operation="extraction",
+                    job_id=job_id,
                     metadata={
                         "text_length": len(text),
                         "pages": pages
@@ -175,7 +177,7 @@ class LlamaExtractor:
         for chunk in chunks:
             try:
                 # Extract statements from the chunk
-                extraction_results = self._extract_statements(chunk.text, chunk.pages)
+                extraction_results = self._extract_statements(chunk.text, chunk.pages, job_id=job_id)
 
                 # Process extraction results
                 for result in extraction_results:

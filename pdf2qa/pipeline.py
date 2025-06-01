@@ -190,7 +190,7 @@ class Pipeline:
 
             logger.info("Starting QA generation stage")
             summary.start_stage("qa_generation")
-            qa_pairs = self.qa_generator.generate(statements, source=str(document.path))
+            qa_pairs = self.qa_generator.generate(statements, source=str(document.path), job_id=job_id)
             qa_duration = summary.end_stage("qa_generation")
             summary.record_qa_results(qa_pairs, qa_duration)
             logger.info(f"QA generation complete: {len(qa_pairs)} QA pairs generated")

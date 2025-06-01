@@ -82,3 +82,7 @@ llama_docs/
 output/*.txt
 output/*.json
 output/*.jsonl
+
+# Personal cost tracking files
+costs.json
+costs_backup.json
