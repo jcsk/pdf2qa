@@ -11,6 +11,7 @@ import openai
 
 from pdf2qa.models import Chunk, Statement
 from pdf2qa.utils.logging import get_logger
+from pdf2qa.utils.cost_tracker import cost_tracker
 
 logger = get_logger()
 
@@ -114,6 +115,19 @@ class LlamaExtractor:
                 max_tokens=1000,
             )
 
+            # Track OpenAI cost
+            if hasattr(response, 'usage') and response.usage:
+                cost_tracker.track_openai_call(
+                    model=self.model,
+                    input_tokens=response.usage.prompt_tokens,
+                    output_tokens=response.usage.completion_tokens,
+                    operation="extraction",
+                    metadata={
+                        "text_length": len(text),
+                        "pages": pages
+                    }
+                )
+
             # Parse the response
             if response.choices and response.choices[0].message.content:
                 content = response.choices[0].message.content.strip()
@@ -144,7 +158,7 @@ class LlamaExtractor:
             logger.error(f"Error in extraction function: {e}")
             return [{"statement": f"Sample statement extracted from text of length {len(text)}.", "page": pages[0] if pages else 1}]
 
-    def extract(self, chunks: List[Chunk]) -> List[Statement]:
+    def extract(self, chunks: List[Chunk], job_id: Optional[str] = None) -> List[Statement]:
         """
         Extract structured statements from text chunks.
 

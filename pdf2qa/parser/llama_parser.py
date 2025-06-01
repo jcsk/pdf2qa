@@ -9,6 +9,7 @@ from llama_cloud_services import LlamaParse
 
 from pdf2qa.models import Chunk, Document
 from pdf2qa.utils.logging import get_logger
+from pdf2qa.utils.cost_tracker import cost_tracker
 
 logger = get_logger()
 
@@ -54,7 +55,60 @@ class LlamaParser:
 
         logger.info(f"Initialized LlamaParser with language: {language}")
 
-    def parse(self, document: Document) -> List[Chunk]:
+    def _chunk_text(self, text: str, chunk_size: int, chunk_overlap: int) -> List[str]:
+        """
+        Split text into chunks with specified size and overlap.
+
+        Args:
+            text: Text to chunk
+            chunk_size: Maximum size of each chunk in characters
+            chunk_overlap: Number of characters to overlap between chunks
+
+        Returns:
+            List of text chunks
+        """
+        if len(text) <= chunk_size:
+            return [text]
+
+        chunks = []
+        start = 0
+
+        while start < len(text):
+            end = start + chunk_size
+
+            # If this is not the last chunk, try to find a good break point
+            if end < len(text):
+                # Look for sentence endings within the last 100 characters
+                search_start = max(start + chunk_size - 100, start)
+                sentence_end = -1
+
+                for i in range(end - 1, search_start - 1, -1):
+                    if text[i] in '.!?':
+                        sentence_end = i + 1
+                        break
+
+                # If we found a sentence ending, use it
+                if sentence_end > start:
+                    end = sentence_end
+                # Otherwise, look for word boundaries
+                else:
+                    while end > start and text[end] not in ' \t\n':
+                        end -= 1
+                    if end == start:  # No word boundary found, use original end
+                        end = start + chunk_size
+
+            chunk = text[start:end].strip()
+            if chunk:
+                chunks.append(chunk)
+
+            # Move start position with overlap
+            start = end - chunk_overlap
+            if start <= 0:
+                start = end
+
+        return chunks
+
+    def parse(self, document: Document, job_id: Optional[str] = None) -> List[Chunk]:
         """
         Parse a document into chunks.
 
@@ -85,15 +139,13 @@ class LlamaParser:
             # Parse the document
             result = self.parser.parse(str(document.path))
 
-            # Get markdown documents with custom chunking parameters
+            # Get markdown documents (chunking parameters are not supported by LlamaParse API)
             markdown_documents = result.get_markdown_documents(
                 split_by_page=True,
-                chunk_size=self.chunk_size,
-                chunk_overlap=self.chunk_overlap,
             )
-            logger.info(f"Successfully parsed document into {len(markdown_documents)} chunks")
+            logger.info(f"Successfully parsed document into {len(markdown_documents)} page-based chunks")
 
-            # Convert to our Chunk model
+            # Convert to our Chunk model and apply custom chunking
             chunks = []
             for i, doc in enumerate(markdown_documents):
                 # Extract page numbers from metadata if available
@@ -116,12 +168,31 @@ class LlamaParser:
                 if hasattr(doc, "metadata") and "section" in doc.metadata:
                     section = doc.metadata["section"]
 
-                chunk = Chunk(
-                    text=doc.text,
-                    pages=pages,
-                    section=section,
-                )
-                chunks.append(chunk)
+                # Apply custom chunking if the text is larger than chunk_size
+                text_chunks = self._chunk_text(doc.text, self.chunk_size, self.chunk_overlap)
+
+                for chunk_text in text_chunks:
+                    chunk = Chunk(
+                        text=chunk_text,
+                        pages=pages,
+                        section=section,
+                    )
+                    chunks.append(chunk)
+
+            logger.info(f"Applied custom chunking, resulting in {len(chunks)} final chunks")
+
+            # Track LlamaParse cost (estimate pages from chunks)
+            estimated_pages = len(markdown_documents)
+            cost_tracker.track_llamaparse_call(
+                pages=estimated_pages,
+                job_id=job_id,
+                metadata={
+                    "document_path": str(document.path),
+                    "chunks_created": len(chunks),
+                    "chunk_size": self.chunk_size,
+                    "chunk_overlap": self.chunk_overlap
+                }
+            )
 
             return chunks
 

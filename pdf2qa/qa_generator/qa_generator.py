@@ -12,6 +12,7 @@ from tqdm import tqdm
 
 from pdf2qa.models import QAPair, Statement
 from pdf2qa.utils.logging import get_logger
+from pdf2qa.utils.cost_tracker import cost_tracker
 
 logger = get_logger()
 
@@ -152,6 +153,17 @@ class QAGenerator:
                     temperature=self.temperature,
                     max_tokens=self.max_tokens,
                 )
+
+                # Track OpenAI cost for question generation
+                if hasattr(response, 'usage') and response.usage:
+                    cost_tracker.track_openai_call(
+                        model=self.model,
+                        input_tokens=response.usage.prompt_tokens,
+                        output_tokens=response.usage.completion_tokens,
+                        operation="question_generation",
+                        metadata={"batch_size": len(prompts)}
+                    )
+
                 responses.append(response)
             
             # Extract questions from responses
@@ -214,6 +226,17 @@ class QAGenerator:
                     temperature=self.temperature,
                     max_tokens=self.max_tokens,
                 )
+
+                # Track OpenAI cost for answer generation
+                if hasattr(response, 'usage') and response.usage:
+                    cost_tracker.track_openai_call(
+                        model=self.model,
+                        input_tokens=response.usage.prompt_tokens,
+                        output_tokens=response.usage.completion_tokens,
+                        operation="answer_generation",
+                        metadata={"batch_size": len(prompts)}
+                    )
+
                 responses.append(response)
             
             # Extract answers from responses

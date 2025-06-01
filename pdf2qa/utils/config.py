@@ -8,6 +8,14 @@ from typing import Any, Dict, Union
 
 import yaml
 
+# Try to load dotenv if available
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # dotenv not installed, skip loading .env file
+    pass
+
 
 def load_config(config_path: Union[str, Path]) -> Dict[str, Any]:
     """
@@ -47,7 +55,7 @@ def _process_env_vars(config: Dict[str, Any]) -> None:
     Args:
         config: Configuration dictionary to process.
     """
-    for section, section_config in config.items():
+    for section_config in config.values():
         if not isinstance(section_config, dict):
             continue
 

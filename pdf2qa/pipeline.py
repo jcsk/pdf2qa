@@ -15,6 +15,8 @@ from pdf2qa.parser import LlamaParser
 from pdf2qa.qa_generator import QAGenerator
 from pdf2qa.utils.config import get_default_config, load_config
 from pdf2qa.utils.logging import get_logger, setup_logging
+from pdf2qa.utils.cost_tracker import cost_tracker
+from pdf2qa.utils.summary_generator import start_processing_summary
 
 logger = get_logger()
 
@@ -144,11 +146,17 @@ class Pipeline:
 
         logger.info(f"Starting pipeline for input: {input_path} with job ID: {job_id}")
 
+        # Start processing summary
+        summary = start_processing_summary(job_id, input_path)
+
         # Parse document
         chunks = []
         if not skip_parse:
             logger.info("Starting parsing stage")
-            chunks = self.parser.parse(document)
+            summary.start_stage("parsing")
+            chunks = self.parser.parse(document, job_id=job_id)
+            parsing_duration = summary.end_stage("parsing")
+            summary.record_parsing_results(chunks, parsing_duration)
             logger.info(f"Parsing complete: {len(chunks)} chunks extracted")
 
             # Update content exporter output path with job ID
@@ -157,6 +165,7 @@ class Pipeline:
 
             # Export chunks
             content_exporter.export_chunks(chunks)
+            summary.record_output_file("content_json", content_path)
             logger.info(f"Content exported to: {content_path}")
 
         # Extract statements
@@ -167,7 +176,10 @@ class Pipeline:
                 return
 
             logger.info("Starting extraction stage")
-            statements = self.extractor.extract(chunks)
+            summary.start_stage("extraction")
+            statements = self.extractor.extract(chunks, job_id=job_id)
+            extraction_duration = summary.end_stage("extraction")
+            summary.record_extraction_results(statements, extraction_duration)
             logger.info(f"Extraction complete: {len(statements)} statements extracted")
 
         # Generate QA pairs
@@ -177,7 +189,10 @@ class Pipeline:
                 return
 
             logger.info("Starting QA generation stage")
+            summary.start_stage("qa_generation")
             qa_pairs = self.qa_generator.generate(statements, source=str(document.path))
+            qa_duration = summary.end_stage("qa_generation")
+            summary.record_qa_results(qa_pairs, qa_duration)
             logger.info(f"QA generation complete: {len(qa_pairs)} QA pairs generated")
 
             # Update QA exporter output path with job ID
@@ -186,10 +201,22 @@ class Pipeline:
 
             # Export QA pairs
             qa_exporter.export(qa_pairs)
+            summary.record_output_file("qa_jsonl", qa_path)
             logger.info(f"QA pairs exported to: {qa_path}")
 
         end_time = time.time()
         logger.info(f"Pipeline completed in {end_time - start_time:.2f} seconds")
+
+        # Finalize and save processing summary
+        summary.finalize()
+        summary_path = self._get_output_path(Path("./output/summary.json"), job_id)
+        summary.save_to_file(summary_path)
+        summary.record_output_file("summary_json", summary_path)
+
+        # Display summaries
+        summary.print_summary()
+        cost_tracker.save_costs()
+        cost_tracker.print_summary()
 
     def _get_output_path(self, original_path: Union[str, Path], job_id: str) -> Path:
         """

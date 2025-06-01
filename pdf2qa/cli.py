@@ -10,6 +10,7 @@ import click
 
 from pdf2qa.pipeline import Pipeline
 from pdf2qa.utils.logging import setup_logging
+from pdf2qa.utils.cost_tracker import cost_tracker
 
 
 @click.group()
@@ -129,6 +130,78 @@ def process(
         skip_qa=skip_qa,
         job_id=job_id,
     )
+
+
+@cli.command()
+@click.option(
+    "--cost-file",
+    default="costs.json",
+    help="Path to the cost tracking file.",
+)
+def costs(cost_file: str):
+    """
+    Display API cost summary.
+    """
+    from pdf2qa.utils.cost_tracker import CostTracker
+
+    tracker = CostTracker(cost_file)
+    tracker.print_summary()
+
+
+@cli.command()
+@click.argument("summary_file", type=click.Path(exists=True))
+def summary(summary_file: str):
+    """
+    Display processing summary from a summary file.
+    """
+    import json
+
+    try:
+        with open(summary_file, 'r') as f:
+            data = json.load(f)
+
+        print("\n" + "="*80)
+        print("📊 PROCESSING SUMMARY")
+        print("="*80)
+        print(f"🆔 Job ID: {data['job_id']}")
+        print(f"📄 Document: {data['input_document']['path']}")
+        print(f"📏 Size: {data['input_document']['size_bytes']:,} bytes ({data['input_document']['estimated_pages']} pages)")
+
+        metrics = data['processing_metrics']
+        print(f"\n⏱️  Processing Time:")
+        print(f"   Total: {metrics['total_time_seconds']:.2f}s")
+        print(f"   Parsing: {metrics['parsing_time_seconds']:.2f}s")
+        print(f"   Extraction: {metrics['extraction_time_seconds']:.2f}s")
+        print(f"   QA Generation: {metrics['qa_generation_time_seconds']:.2f}s")
+
+        output = data['output_metrics']
+        print(f"\n📊 Output Metrics:")
+        print(f"   Chunks: {output['chunks_created']}")
+        print(f"   Statements: {output['statements_extracted']}")
+        print(f"   Q/A Pairs: {output['qa_pairs_generated']}")
+
+        costs = data['cost_metrics']
+        print(f"\n💰 Cost Breakdown:")
+        print(f"   Total: ${costs['total_cost_usd']:.4f}")
+        print(f"   LlamaParse: ${costs['llamaparse_cost_usd']:.4f}")
+        print(f"   OpenAI: ${costs['openai_cost_usd']:.4f} ({costs['openai_tokens_used']:,} tokens)")
+        print(f"   Cost per page: ${costs['cost_per_page']:.4f}")
+        print(f"   Cost per Q/A pair: ${costs['cost_per_qa_pair']:.4f}")
+
+        perf = data['performance_metrics']
+        print(f"\n🚀 Performance:")
+        print(f"   Pages/second: {perf['pages_per_second']:.2f}")
+        print(f"   Q/A pairs/second: {perf['qa_pairs_per_second']:.2f}")
+
+        print(f"\n📁 Output Files:")
+        for file_type, info in data['output_files'].items():
+            size_kb = info["size_bytes"] / 1024
+            print(f"   {file_type}: {info['path']} ({size_kb:.1f} KB)")
+
+        print("="*80)
+
+    except Exception as e:
+        click.echo(f"Error reading summary file: {e}", err=True)
 
 
 def main():
