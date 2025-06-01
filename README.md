@@ -114,6 +114,8 @@ Use a YAML (or JSON) config to tune behavior:
 parser:
   model: "llama-parse-1"
   api_key_env: "LLAMAINDEX_API_KEY"
+  chunk_size: 1500
+  chunk_overlap: 200
 
 extractor:
   agent_id: "statement-extraction-v1"
@@ -148,6 +150,8 @@ $ pdf2qa process --input Book.pdf --config config.yaml
 --skip-extract
 --skip-qa
 --verbose
+--chunk-size [tokens]
+--chunk-overlap [tokens]
 
 Under the hood, process orchestrates:
 

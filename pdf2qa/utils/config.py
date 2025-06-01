@@ -77,6 +77,8 @@ def get_default_config() -> Dict[str, Any]:
         "parser": {
             "language": "en",
             "api_key_env": "LLAMA_CLOUD_API_KEY",
+            "chunk_size": 1500,
+            "chunk_overlap": 200,
         },
         "extractor": {
             "openai_model": "gpt-3.5-turbo",

@@ -48,6 +48,9 @@ pdf2qa process --input document.pdf --job-id my_job_123
 
 # Skip certain stages
 pdf2qa process --input document.pdf --skip-qa
+
+# Custom chunking
+pdf2qa process --input document.pdf --chunk-size 2000 --chunk-overlap 100
 ```
 
 ### Python API
@@ -81,6 +84,8 @@ You can customize the behavior of pdf2qa using a YAML configuration file:
 parser:
   language: "en"
   api_key_env: "LLAMA_CLOUD_API_KEY"
+  chunk_size: 1500
+  chunk_overlap: 200
 
 extractor:
   openai_model: "gpt-3.5-turbo"
