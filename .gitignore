@@ -68,6 +68,11 @@ coverage.xml
 # Project specific
 output/
 llama_docs/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
 # Document files
 *.pdf
 *.docx

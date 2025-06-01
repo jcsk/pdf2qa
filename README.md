@@ -1,47 +1,265 @@
-Below is a high-level spec for a Python library, pdf2qa, that ingests PDFs (or other docs), runs them through LlamaParse → LlamaExtract → OpenAI Q/A generation, and exports both “LLM-ready” content JSON and fine-tuning JSONL.
+# pdf2qa
 
-⸻
+**Transform PDFs into LLM-ready Q&A datasets with comprehensive cost tracking and performance analytics.**
 
-1. Project Overview
+pdf2qa is a production-ready Python library and CLI tool that converts PDF documents into high-quality question-answer pairs for fine-tuning language models. It provides a complete pipeline from document parsing to Q&A generation with detailed cost tracking and performance metrics.
 
-pdf2qa provides a pip-installable CLI and Python API to turn any PDF (or text document) into:
-	1.	Content JSON – cleaned, chunked text with full provenance
-	2.	Q/A JSONL – ready to feed into OpenAI’s fine-tuning API
+## 🚀 Features
 
-It leverages:
-	•	LlamaParse (via llamaindex SDK) for robust PDF→text parsing
-	•	LlamaExtract (via llamaindex SDK) for schema-driven statement extraction
-	•	OpenAI APIs for question-answer generation
+- **📄 Robust PDF Parsing**: Uses LlamaParse for high-quality text extraction with layout preservation
+- **🧠 Intelligent Chunking**: Custom text chunking with configurable size and overlap
+- **📝 Statement Extraction**: OpenAI-powered extraction of key statements from document chunks
+- **❓ Q&A Generation**: Two-stage prompting to generate high-quality question-answer pairs
+- **💰 Cost Tracking**: Real-time tracking of API costs for both LlamaParse and OpenAI
+- **📊 Performance Analytics**: Detailed metrics on processing time, throughput, and efficiency
+- **📁 Multiple Output Formats**: Content JSON, Q&A JSONL, and comprehensive summary reports
+- **⚙️ Configurable Pipeline**: Flexible configuration with YAML/JSON support
+- **🔄 Robust Error Handling**: Retry logic, rate limiting, and graceful error recovery
 
-⸻
+## 🏗️ Architecture
 
-2. Core Architecture
-
+```
 ┌──────────────┐    ┌───────────────┐    ┌─────────────────┐    ┌─────────────┐
-│ PDF / DOC/X  │ →  │ Parser Module │ →  │ Extractor Module│ →  │ QA Generator│
+│ PDF Document │ →  │ LlamaParse    │ →  │ Statement       │ →  │ Q&A         │
+│              │    │ + Chunking    │    │ Extraction      │    │ Generation  │
 └──────────────┘    └───────────────┘    └─────────────────┘    └─────┬───────┘
                                                                      │
                                                                      ↓
-                                                   ┌──────────────────────────┐
-                                                   │   Exporters & CLI        │
-                                                   │ └ Content JSON           │
-                                                   │ └ Q/A JSONL              │
-                                                   └──────────────────────────┘
+                                         ┌──────────────────────────────────────┐
+                                         │           Outputs                    │
+                                         │ • Content JSON (structured chunks)  │
+                                         │ • Q&A JSONL (fine-tuning ready)     │
+                                         │ • Summary JSON (metrics & costs)    │
+                                         │ • Cost tracking (persistent)        │
+                                         └──────────────────────────────────────┘
+```
 
+## 📦 Installation
 
-⸻
+```bash
+pip install pdf2qa
+```
 
-3. Components & Data Models
+## 🔧 Setup
 
-3.1 Data Models
-	•	Document
+1. **Set up API keys** in your environment:
+```bash
+export LLAMA_CLOUD_API_KEY="your-llamaparse-api-key"
+export OPENAI_API_KEY="your-openai-api-key"
+```
 
+2. **Or use a `.env` file**:
+```bash
+LLAMA_CLOUD_API_KEY=your-llamaparse-api-key
+OPENAI_API_KEY=your-openai-api-key
+```
+
+## 🚀 Quick Start
+
+### CLI Usage
+
+```bash
+# Basic processing
+pdf2qa process --input document.pdf
+
+# With custom configuration
+pdf2qa process --input document.pdf --config config.yaml --verbose
+
+# Skip certain stages
+pdf2qa process --input document.pdf --skip-extract --skip-qa
+
+# View cost summary
+pdf2qa costs
+
+# View processing summary
+pdf2qa summary output/summary_document.json
+```
+
+### Python API
+
+```python
+from pdf2qa import Pipeline
+
+# Create and run pipeline
+pipeline = Pipeline()
+pipeline.run(input_path="document.pdf")
+
+# With custom configuration
+pipeline = Pipeline.from_config("config.yaml")
+pipeline.run(input_path="document.pdf", job_id="my-job")
+```
+
+## 📊 Example Output
+
+After processing a 14-page PDF document:
+
+```
+📊 PROCESSING SUMMARY
+================================================================================
+🆔 Job ID: ColdCaseSolvability_8.7.19
+📄 Document: ColdCaseSolvability_8.7.19.pdf
+📏 Size: 2,007,383 bytes (14 pages)
+
+⏱️  Processing Time:
+   Total: 310.16s
+   Parsing: 15.47s
+   Extraction: 66.00s
+   QA Generation: 228.68s
+
+📊 Output Metrics:
+   Chunks: 34
+   Statements: 185
+   Q/A Pairs: 185
+
+💰 Cost Breakdown:
+   Total: $0.0847
+   LlamaParse: $0.0420
+   OpenAI: $0.0427 (59,326 tokens)
+   Cost per page: $0.0060
+   Cost per Q/A pair: $0.0005
+
+🚀 Performance:
+   Pages/second: 0.05
+   Q/A pairs/second: 0.60
+
+📁 Output Files:
+   content_json: output/content_ColdCaseSolvability_8.7.19.json (40.9 KB)
+   qa_jsonl: output/qa_ColdCaseSolvability_8.7.19.jsonl (52.3 KB)
+   summary_json: output/summary_ColdCaseSolvability_8.7.19.json (1.4 KB)
+================================================================================
+```
+
+## 📁 Output Files
+
+### 1. Content JSON
+Structured chunks with metadata:
+```json
+[
+  {
+    "id": "chunk-1",
+    "text": "Cold case investigations require systematic approaches...",
+    "pages": [1, 2],
+    "section": "Introduction"
+  }
+]
+```
+
+### 2. Q&A JSONL
+Ready for OpenAI fine-tuning:
+```jsonl
+{"messages": [{"role": "user", "content": "What are the key factors in cold case solvability?"}, {"role": "assistant", "content": "Key factors include physical evidence preservation, witness availability, and technological advances in forensic analysis."}]}
+{"messages": [{"role": "user", "content": "How does DNA evidence impact cold cases?"}, {"role": "assistant", "content": "DNA evidence can provide definitive identification and has revolutionized cold case investigations by enabling matches decades after crimes occurred."}]}
+```
+
+### 3. Summary JSON
+Comprehensive processing metrics:
+```json
+{
+  "job_id": "document_name",
+  "processing_metrics": {
+    "total_time_seconds": 310.16,
+    "parsing_time_seconds": 15.47
+  },
+  "cost_metrics": {
+    "total_cost_usd": 0.0847,
+    "cost_per_page": 0.0060
+  }
+}
+```
+
+## ⚙️ Configuration
+
+Create a `config.yaml` file to customize the pipeline:
+
+```yaml
+parser:
+  chunk_size: 1500
+  chunk_overlap: 200
+  language: "en"
+
+extractor:
+  model: "gpt-3.5-turbo"
+  temperature: 0.0
+  max_tokens: 1000
+
+qa_generator:
+  model: "gpt-3.5-turbo"
+  temperature: 0.0
+  max_tokens: 256
+  batch_size: 5
+
+export:
+  content_path: "./output/content.json"
+  qa_path: "./output/qa.jsonl"
+```
+
+## 💰 Cost Tracking
+
+pdf2qa provides comprehensive cost tracking and analytics:
+
+### Real-time Cost Monitoring
+- **LlamaParse**: $0.003 per page
+- **OpenAI**: Variable based on model and token usage
+- **Live updates**: See costs accumulate during processing
+- **Token counting**: Track input/output tokens for each API call
+
+### Cost Analytics
+- **Per-job tracking**: Costs isolated by job ID
+- **Service breakdown**: Separate costs for LlamaParse vs OpenAI
+- **Model-specific costs**: Track usage by OpenAI model
+- **Efficiency metrics**: Cost per page, cost per Q&A pair
+- **Historical data**: Persistent cost tracking across runs
+
+### Cost Management
+```bash
+# View current cost summary
+pdf2qa costs
+
+# View costs for specific job
+pdf2qa summary output/summary_job_name.json
+
+# Cost data persisted in costs.json
+{
+  "total_cost": 0.0847,
+  "by_service": {
+    "llamaparse": {"cost": 0.0420, "calls": 1},
+    "openai": {"cost": 0.0427, "calls": 404}
+  },
+  "by_model": {
+    "gpt-3.5-turbo": {"cost": 0.0427, "tokens": 59326}
+  }
+}
+```
+
+## 🔧 CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `pdf2qa process` | Process a PDF through the full pipeline |
+| `pdf2qa costs` | Display API cost summary |
+| `pdf2qa summary` | Display processing summary from file |
+
+### Process Command Options
+
+| Option | Description |
+|--------|-------------|
+| `--input` | Path to input PDF file |
+| `--config` | Path to configuration file |
+| `--output-dir` | Output directory (default: ./output) |
+| `--skip-parse` | Skip parsing stage |
+| `--skip-extract` | Skip extraction stage |
+| `--skip-qa` | Skip Q&A generation stage |
+| `--verbose` | Enable verbose logging |
+| `--job-id` | Custom job identifier |
+
+## 🏗️ Core Components
+
+### Data Models
+
+```python
 class Document:
     path: str
     metadata: dict
-
-
-	•	Chunk
 
 class Chunk:
     id: str
@@ -49,146 +267,96 @@ class Chunk:
     pages: List[int]
     section: Optional[str]
 
-
-	•	Statement
-
 class Statement:
     id: str
     text: str
     pages: List[int]
 
-
-	•	QAPair
-
 class QAPair:
     prompt: str
     completion: str
     metadata: {
-      "pages": List[int],
-      "source": str,
-      "chunk_id": str
+        "pages": List[int],
+        "source": str,
+        "chunk_id": str
     }
+```
 
+### Pipeline Stages
 
+1. **Parser Module (LlamaParser)**
+   - Uses LlamaParse API for robust PDF→text conversion
+   - Produces chunks with page and layout metadata
+   - Custom chunking with configurable size and overlap
 
-3.2 Parser Module
-	•	LlamaParser
-	•	Inputs: Document.path
-	•	Uses llamaindex’s LlamaParse API to produce a list of raw text chunks with page and layout metadata.
-	•	Outputs: List[Chunk] (text only, minimal cleaning done by LlamaParse).
+2. **Extractor Module (LlamaExtractor)**
+   - OpenAI-powered statement extraction from chunks
+   - Structured extraction with validation
+   - Maintains full provenance tracking
 
-3.3 Extractor Module
-	•	LlamaExtractor
-	•	Inputs: List[Chunk] + user-defined Pydantic/JSON Schema (e.g. { statement: str, page: int }).
-	•	Calls llamaindex’s LlamaExtract to produce List[Statement].
-	•	Ensures structured, validated extraction of “ideas,” with provenance.
+3. **QA Generator Module (QAGenerator)**
+   - Two-stage prompting: statement → question → answer
+   - Batched requests with rate limiting
+   - Robust error handling and retries
 
-3.4 QA Generator Module
-	•	QAGenerator
-	•	Inputs: List[Statement]
-	•	Two-stage prompting against OpenAI’s ChatCompletion endpoint:
-	1.	Statement → question
-	2.	Statement + question → answer
-	•	Batches requests, handles rate limits & retries.
-	•	Outputs: List[QAPair]
+4. **Export Modules**
+   - ContentExporter: Structured JSON with chunks/statements
+   - QAExporter: JSONL format ready for OpenAI fine-tuning
+   - SummaryGenerator: Comprehensive processing metrics
 
-3.5 Exporters
-	•	ContentExporter
-	•	Persists parsed chunks (and/or statements) to a JSON file:
+## 🔧 Error Handling & Logging
 
-[
-  { "id":"chunk-1", "text":"…", "pages":[1], "section":null },
-  …
-]
+- **Retries**: Exponential backoff for transient API errors
+- **Validation**: Graceful handling of extraction failures
+- **Progress Tracking**: Real-time counts and metrics
+- **Cost Monitoring**: Token usage and API cost tracking
+- **Verbose Logging**: Detailed pipeline execution logs
 
+## 📦 Dependencies
 
-	•	QAJExporter
-	•	Writes Q/A pairs as JSONL, one object per line, ready for OpenAI fine-tuning.
+```
+llama-cloud-services>=0.0.11
+openai>=1.0.0
+pydantic>=2.0.0
+click>=8.0.0
+python-dotenv>=1.0.0
+PyYAML>=6.0.0
+tqdm>=4.65.0
+```
 
-⸻
+## 🧪 Development
 
-4. Configuration
+```bash
+# Clone repository
+git clone https://github.com/your-username/pdf2qa.git
+cd pdf2qa
 
-Use a YAML (or JSON) config to tune behavior:
+# Install in development mode
+pip install -e .
 
-parser:
-  model: "llama-parse-1"
-  api_key_env: "LLAMAINDEX_API_KEY"
-  chunk_size: 1500
-  chunk_overlap: 200
+# Run tests
+pytest
 
-extractor:
-  agent_id: "statement-extraction-v1"
-  schema_path: "./schemas/statement.json"
+# Run with sample document
+pdf2qa process --input sample.pdf --verbose
+```
 
-qa_generator:
-  openai_model: "gpt-3.5-turbo"
-  temperature: 0.0
-  max_tokens: 256
-  batch_size: 5
-  api_key_env: "OPENAI_API_KEY"
+## 📋 Requirements
 
-export:
-  content_path: "./output/content.json"
-  qa_jsonl_path: "./output/qa.jsonl"
+- Python 3.8+
+- LlamaParse API key
+- OpenAI API key
 
+## 🤝 Contributing
 
-⸻
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-5. CLI Design
+## 📄 License
 
-$ pip install pdf2qa
+This project is licensed under the MIT License.
 
-# Basic pipeline
-$ pdf2qa process --input Book.pdf --config config.yaml
+## 🙏 Acknowledgments
 
-# Options
---input       Path to PDF/DOCX
---config      YAML config file
---output-dir  Directory for JSON + JSONL
---skip-parse  [skip parser stage]
---skip-extract
---skip-qa
---verbose
---chunk-size [tokens]
---chunk-overlap [tokens]
-
-Under the hood, process orchestrates:
-
-from pdf2qa import Pipeline
-
-pipe = Pipeline.from_config("config.yaml")
-pipe.run(input_path="Book.pdf")
-# writes content.json and qa.jsonl
-
-
-⸻
-
-6. Error Handling & Logging
-	•	Retries on transient API errors (exponential back-off)
-	•	Validation failures in extractor emit warnings and drop bad records
-	•	Progress logging with counts: pages parsed, statements extracted, Q/A generated
-	•	Metrics: time per stage, tokens used (for cost tracking)
-
-⸻
-
-7. Dependencies
-
-llamaindex>=0.x
-openai>=0.x
-pydantic>=1.x
-PyMuPDF or pdfminer.six
-click (for CLI)
-tqdm (for progress bars)
-
-
-⸻
-
-Next Steps
-	1.	Define JSON Schema for “Statement” extraction.
-	2.	Prototype the LlamaParser + LlamaExtractor integration.
-	3.	Implement batched OpenAI Q/A prompting with robust error handling.
-	4.	Build CLI and config loader.
-	5.	Write end-to-end tests on a short sample PDF.
-
-With this spec in hand, you can start scaffolding the repo, iterating on prompts and schemas, and delivering a turnkey toolkit for turning any document into fine-tuning-ready datasets.
+- [LlamaIndex](https://www.llamaindex.ai/) for LlamaParse
+- [OpenAI](https://openai.com/) for language models
+- Built with ❤️ for the AI community
